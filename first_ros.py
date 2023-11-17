@@ -8,19 +8,22 @@ import dearpygui.dearpygui as dpg
 dpg.create_context()
 
 
-sindatax = []
-sindatay = []
-for i in range(0, 100):
-    sindatax.append(i / 100)
-    sindatay.append(0.5 + 0.5 * math.sin(50 * i / 100))
-sindatay2 = []
-for i in range(0, 100):
-    sindatay2.append(2 + 0.5 * math.sin(50 * i / 100))
+out_x = [0]
+out_y = [0]
+in_x = [0]
+in_y = [0]
+
+
 
 #  ROS
-
 def get_counter(msg):
     counter_sub_data = dpg.set_value(item="Counter_Sub", value=f"{msg.data}")
+    out_x.append(out_x[-1]+1)
+    out_y.append(msg.data)
+    in_x.append(in_x[-1]+1)
+    in_y.append(in_x[-1]+1)
+    update_series()
+    
 
 
 rospy.init_node("Dearpy_Node")
@@ -39,13 +42,11 @@ def _log(sender, app_data, user_data):
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
 
 def update_series():
-    cosdatax = []
-    cosdatay = []
-    for i in range(0, 500):
-        cosdatax.append(i / 1000)
-        cosdatay.append(0.5 + 0.5 * math.cos(50 * i / 1000))
-    dpg.set_value('series_tag', [cosdatax, cosdatay])
-    dpg.set_item_label('series_tag', "0.5 + 0.5 * cos(x)")
+    dpg.set_value('series_tag_output', [out_x, out_y])
+    dpg.set_item_label('series_tag_output', "Counter")
+
+    dpg.set_value('series_tag_input', [in_x, in_y])
+    dpg.set_item_label('series_tag_input', "Counter")
 
 
 def _on_demo_close(sender, app_data, user_data):
@@ -135,7 +136,7 @@ with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_cl
 
     with dpg.window(label="Plots", width=1200, height=600, pos=(600,0)):
         # create a theme for the plot
-        with dpg.theme(tag="plot_theme"):
+        with dpg.theme(tag="plot_theme_blue"):
             with dpg.theme_component(dpg.mvStemSeries):
                 dpg.add_theme_color(dpg.mvPlotCol_Line, (150, 255, 0), category=dpg.mvThemeCat_Plots)
                 dpg.add_theme_style(dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Diamond, category=dpg.mvThemeCat_Plots)
@@ -143,6 +144,17 @@ with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_cl
 
             with dpg.theme_component(dpg.mvScatterSeries):
                 dpg.add_theme_color(dpg.mvPlotCol_Line, (60, 150, 200), category=dpg.mvThemeCat_Plots)
+                dpg.add_theme_style(dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Square, category=dpg.mvThemeCat_Plots)
+                dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 4, category=dpg.mvThemeCat_Plots)
+        
+        with dpg.theme(tag="plot_theme_red"):
+            with dpg.theme_component(dpg.mvStemSeries):
+                dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0), category=dpg.mvThemeCat_Plots)
+                dpg.add_theme_style(dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Diamond, category=dpg.mvThemeCat_Plots)
+                dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 7, category=dpg.mvThemeCat_Plots)
+
+            with dpg.theme_component(dpg.mvScatterSeries):
+                dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0), category=dpg.mvThemeCat_Plots)
                 dpg.add_theme_style(dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Square, category=dpg.mvThemeCat_Plots)
                 dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 4, category=dpg.mvThemeCat_Plots)
 
@@ -159,12 +171,18 @@ with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_cl
 
             # series belong to a y axis. Note the tag name is used in the update
             # function update_data
-            dpg.add_line_series(x=list(sindatax),y=list(sindatay), 
-                                label='Temp', parent='y_axis', 
-                                tag='series_tag')
+            dpg.add_line_series(x=list(out_x),y=list(out_y), 
+                                label='Counter_Output', parent='y_axis', 
+                                tag='series_tag_output')
+            
+            dpg.add_line_series(x=list(in_x),y=list(in_y), 
+                                label='Counter_Intput', parent='y_axis', 
+                                tag='series_tag_input')
             
             # apply theme to series
-            dpg.bind_item_theme("series_tag", "plot_theme")
+            dpg.bind_item_theme("series_tag_output", "plot_theme_blue")
+            dpg.bind_item_theme("series_tag_input", "plot_theme_red")
+
 
 
 
