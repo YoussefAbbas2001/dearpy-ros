@@ -13,7 +13,10 @@ out_y = [0]
 in_x = [0]
 in_y = [0]
 
+# TOPICS
+PUB_SIMPLE = "dearpy_simple_pub"
 
+SUB_COUNTER = "dearpy_counter"
 
 #  ROS
 def get_counter(msg):
@@ -27,26 +30,42 @@ def get_counter(msg):
 
 
 rospy.init_node("Dearpy_Node")
-dp_pub = rospy.Publisher("dearpy_simple_pub", String, queue_size=2)
-rospy.Subscriber("dearpy_counter", Int16,  get_counter)
+pub_simple = rospy.Publisher(PUB_SIMPLE, String, queue_size=2)
+rospy.Subscriber(SUB_COUNTER, Int16,  get_counter)
 
 
 #  INTERFACE
 
 def button_callback(sender, app_data):
     msg = dpg.get_value(item="publisher_text")
-    dp_pub.publish(data=msg)
+    pub_simple.publish(data=msg)
     print(f"You publisher at (/dearpy_simple_pub): {msg}")
 
-def _log(sender, app_data, user_data):
+def manual_control(sender, app_data, user_data):
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
+    speed = dpg.get_value(item='Manual_Speed')
+    if user_data=='UP':
+        pub_simple.publish(f"UP Speed {speed}")
+
+    elif user_data=='DOWN':
+        pub_simple.publish(f"DOWN Speed {speed}")
+    
+    elif user_data=='LEFT':
+        pub_simple.publish(f"LEFT Speed {speed}")
+
+    elif user_data=='RIGHT':
+        pub_simple.publish(f"RIGHT Speed {speed}")
+
 
 def update_series():
     dpg.set_value('series_tag_output', [out_x, out_y])
-    dpg.set_item_label('series_tag_output', "Counter")
+    dpg.set_item_label('series_tag_output', "Output")
 
     dpg.set_value('series_tag_input', [in_x, in_y])
-    dpg.set_item_label('series_tag_input', "Counter")
+    dpg.set_item_label('series_tag_input', "Input")
+
+    dpg.fit_axis_data('x_axis')
+    dpg.fit_axis_data('y_axis') 
 
 
 def _on_demo_close(sender, app_data, user_data):
@@ -80,9 +99,9 @@ with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_cl
 
             with dpg.menu(label="Settings"):
 
-                dpg.add_menu_item(label="Option 1", callback=_log)
-                dpg.add_menu_item(label="Option 2", check=True, callback=_log)
-                dpg.add_menu_item(label="Option 3", check=True, default_value=True, callback=_log)
+                dpg.add_menu_item(label="Option 1", callback=manual_control)
+                dpg.add_menu_item(label="Option 2", check=True, callback=manual_control)
+                dpg.add_menu_item(label="Option 3", check=True, default_value=True, callback=manual_control)
 
                 with dpg.child_window(height=60, autosize_x=True, delay_search=True):
                     for i in range(10):
@@ -133,6 +152,20 @@ with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_cl
             dpg.add_text("Subscriber: ")
             counter_sub_data = dpg.add_text(tag='Counter_Sub', default_value="0" ,)
 
+    with dpg.collapsing_header(label="Manual Control"):
+        with dpg.group(horizontal=True, indent=250):
+            dpg.add_button(label="UP", callback=manual_control,indent=20, arrow=True, direction=dpg.mvDir_Up,user_data='UP',tag='UP_button') # default direction is mvDir_Up
+
+        with dpg.group(horizontal=True, indent=250):
+            dpg.add_button(label="LEFT", callback=manual_control, arrow=True, user_data='LEFT' , direction=dpg.mvDir_Left)
+            dpg.add_button(label="RIGHT", callback=manual_control, arrow=True, user_data='RIGHT', direction=dpg.mvDir_Right)
+
+        with dpg.group(horizontal=True,  indent=250):
+            dpg.add_button(label="DOWN", callback=manual_control,indent=20, arrow=True, user_data='DOWN' ,direction=dpg.mvDir_Down) # default direction is mvDir_Up
+
+        dpg.add_slider_float(label="Speed", default_value=50, max_value=255, tag='Manual_Speed')
+
+
 
     with dpg.window(label="Plots", width=1200, height=600, pos=(600,0)):
         # create a theme for the plot
@@ -179,6 +212,8 @@ with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_cl
                                 label='Counter_Intput', parent='y_axis', 
                                 tag='series_tag_input')
             
+
+
             # apply theme to series
             dpg.bind_item_theme("series_tag_output", "plot_theme_blue")
             dpg.bind_item_theme("series_tag_input", "plot_theme_red")
