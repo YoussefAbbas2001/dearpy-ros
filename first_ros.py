@@ -1,6 +1,10 @@
 import rospy
 from std_msgs.msg import String
 from std_msgs.msg import Int16
+from geometry_msgs.msg import Twist
+from nav_msgs.msg import Odometry
+
+
 import  math
 import dearpygui.dearpygui as dpg
 from utils.logger import mvLogger 
@@ -16,8 +20,10 @@ in_y = [0]
 
 # TOPICS
 PUB_SIMPLE = "dearpy_simple_pub"
+PUB_CMD    = "cmd_vel"
 
 SUB_COUNTER = "dearpy_counter"
+SUB_ODOM = "odom"
 
 
 # LAYOUT
@@ -32,12 +38,23 @@ def get_counter(msg):
     in_x.append(in_x[-1]+1)
     in_y.append(in_x[-1]+1)
     update_series()
-    
+
+def get_odom(msg):
+    x = msg.pose.pose.position.x
+    y = msg.pose.pose.position.y
+    theta = msg.pose.pose.orientation.z
+
+    dpg.set_value(item="state_x", value=f"{x:.5}")
+    dpg.set_value(item="state_y", value=f"{y:.5}")
+    dpg.set_value(item="state_theta", value=f"{theta:.5}")
+
 
 
 rospy.init_node("Dearpy_Node")
 pub_simple = rospy.Publisher(PUB_SIMPLE, String, queue_size=2)
+pub_cmd    = rospy.Publisher(PUB_CMD, Twist, queue_size=2)
 rospy.Subscriber(SUB_COUNTER, Int16,  get_counter)
+rospy.Subscriber(SUB_ODOM, Odometry,  get_odom)
 
 
 #  INTERFACE
@@ -48,31 +65,52 @@ def button_callback(sender, app_data):
     pub_simple.publish(data=msg)
     logger.log_info(message=f"Publisher Simple {msg}")
 
+
+
 def manual_control(sender, app_data, user_data):
+    '''
+    This Function for Take Manual control from GUI
+    '''
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     speed = dpg.get_value(item='Manual_Speed')
-    if user_data=='UP':
+    cmd_speeds = Twist()
+
+
+    if  user_data=="STOP":
+        pub_simple.publish(f"UP Speed {speed}")
+        logger.log_info(message=f"Published Stop")
+        
+
+
+    elif user_data=='UP':
         pub_simple.publish(f"UP Speed {speed}")
         logger.log_info(message=f"Published {speed} UP")
-
+        cmd_speeds.linear.x = speed
 
     elif user_data=='DOWN':
         pub_simple.publish(f"DOWN Speed {speed}")
         logger.log_info(message=f"Published {speed} DOWN")
+        cmd_speeds.linear.x = -speed
+
 
     
     elif user_data=='LEFT':
         pub_simple.publish(f"LEFT Speed {speed}")
         logger.log_info(message=f"Published {speed} LEFT")
+        cmd_speeds.angular.z = -speed
+
 
 
     elif user_data=='RIGHT':
         pub_simple.publish(f"RIGHT Speed {speed}")
         logger.log_info(message=f"Published {speed} RIGHT")
+        cmd_speeds.angular.z = speed
 
-    if speed > 100:
+
+    if speed > 5:
         logger.log_warning(f"Speed is {speed}")
 
+    pub_cmd.publish(cmd_speeds)
 
 
 def update_series():
@@ -86,6 +124,17 @@ def update_series():
     dpg.fit_axis_data('y_axis') 
 
 
+def _hsv_to_rgb(h, s, v):
+    if s == 0.0: return (v, v, v)
+    i = int(h*6.) # XXX assume int() truncates!
+    f = (h*6.)-i; p,q,t = v*(1.-s), v*(1.-s*f), v*(1.-s*(1.-f)); i%=6
+    if i == 0: return (255*v, 255*t, 255*p)
+    if i == 1: return (255*q, 255*v, 255*p)
+    if i == 2: return (255*p, 255*v, 255*t)
+    if i == 3: return (255*p, 255*q, 255*v)
+    if i == 4: return (255*t, 255*p, 255*v)
+    if i == 5: return (255*v, 255*p, 255*q)
+
 def _on_demo_close(sender, app_data, user_data):
     dpg.delete_item(sender)
 
@@ -94,6 +143,13 @@ with dpg.font_registry():
     # first argument ids the path to the .ttf or .otf file
     default_font = dpg.add_font("dearpy-ros/Assets/Fonts/Retron2000.ttf", 30)
 
+with dpg.theme(tag="button_theme"):
+    with dpg.theme_component(dpg.mvButton):
+        dpg.add_theme_color(dpg.mvThemeCol_Button, _hsv_to_rgb(7/7.0, 0.6, 0.6))
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _hsv_to_rgb(7/7.0, 0.8, 0.8))
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _hsv_to_rgb(7/7.0, 0.7, 0.7))
+        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 7*5)
+        dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 7*3, 7*3)
 
 with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_POS, on_close=_on_demo_close):
     #set font of specific widget
@@ -170,18 +226,53 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
             dpg.add_text("Subscriber: ")
             counter_sub_data = dpg.add_text(tag='Counter_Sub', default_value="0" ,)
 
+
+    with dpg.collapsing_header(label="State of Robot"):
+
+            with dpg.group(horizontal=True):
+                '''
+                Subscriber
+                '''
+                dpg.add_text("x  :   ")
+                dpg.add_text("0", tag='state_x')
+
+
+            with dpg.group(horizontal=True):
+                '''
+                Subscriber
+                '''
+                dpg.add_text("y  :   ")
+                dpg.add_text("0", tag='state_y')
+
+
+            with dpg.group(horizontal=True):
+                '''
+                Subscriber
+                '''
+                dpg.add_text("t  :   ")
+                dpg.add_text("0", tag='state_theta')
+
+
     with dpg.collapsing_header(label="Manual Control"):
-        with dpg.group(horizontal=True, indent=250):
-            dpg.add_button(label="UP", callback=manual_control,indent=20, arrow=True, direction=dpg.mvDir_Up,user_data='UP',tag='UP_button') # default direction is mvDir_Up
+        with dpg.group(horizontal=True, indent=200):
+            dpg.add_button(label="UP", callback=manual_control,width=100,indent=20, arrow=True, direction=dpg.mvDir_Up,user_data='UP',tag='up_button') # default direction is mvDir_Up
 
-        with dpg.group(horizontal=True, indent=250):
-            dpg.add_button(label="LEFT", callback=manual_control, arrow=True, user_data='LEFT' , direction=dpg.mvDir_Left)
-            dpg.add_button(label="RIGHT", callback=manual_control, arrow=True, user_data='RIGHT', direction=dpg.mvDir_Right)
+        with dpg.group(horizontal=True, indent=130):
+            dpg.add_button(label="LEFT", callback=manual_control, arrow=True, user_data='LEFT' , direction=dpg.mvDir_Left, tag="left_button")
+            dpg.add_button(label="STOP", callback=manual_control, user_data='STOP', tag='stop_button')
+            dpg.add_button(label="RIGHT", callback=manual_control, arrow=True, user_data='RIGHT', direction=dpg.mvDir_Right, tag="right_button")
 
-        with dpg.group(horizontal=True,  indent=250):
-            dpg.add_button(label="DOWN", callback=manual_control,indent=20, arrow=True, user_data='DOWN' ,direction=dpg.mvDir_Down) # default direction is mvDir_Up
+        with dpg.group(horizontal=True,  indent=200):
+            dpg.add_button(label="DOWN", callback=manual_control,indent=20, arrow=True, user_data='DOWN' ,direction=dpg.mvDir_Down, tag="down_button") # default direction is mvDir_Up
 
-        dpg.add_slider_float(label="Speed", default_value=50, max_value=255, tag='Manual_Speed')
+
+        dpg.bind_item_theme(item='stop_button', theme="button_theme")
+        dpg.bind_item_theme(item='right_button', theme="button_theme")
+        dpg.bind_item_theme(item='left_button', theme="button_theme")
+        dpg.bind_item_theme(item='up_button', theme="button_theme")
+        dpg.bind_item_theme(item='down_button', theme="button_theme")
+        dpg.add_slider_float(label="Speed", default_value=0.1, max_value=10, tag='Manual_Speed')
+        # dpg.add_slider_float(label="Turn", default_value=0.1, max_value=10, tag='Manual_Speed')
 
 
 
