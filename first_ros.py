@@ -3,9 +3,14 @@ from std_msgs.msg import String
 from std_msgs.msg import Int16
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import Image
+import ros_numpy
 
 
+import cv2
 import  math
+import ros_numpy
+import numpy as np
 import dearpygui.dearpygui as dpg
 from utils.logger import mvLogger 
 
@@ -24,6 +29,8 @@ PUB_CMD    = "cmd_vel"
 
 SUB_COUNTER = "dearpy_counter"
 SUB_ODOM = "odom"
+SUB_LEFT_RAW = "/tortabot/camera/left/image_raw"
+SUB_RIGHT_RAW = "/tortabot/camera/right/image_raw"
 
 
 # LAYOUT
@@ -48,13 +55,45 @@ def get_odom(msg):
     dpg.set_value(item="state_y", value=f"{y:.5}")
     dpg.set_value(item="state_theta", value=f"{theta:.5}")
 
+def np_to_list(img):
+    pass
+
+def get_left_stream(msg):
+    left_img = []
+    left_stream = ros_numpy.numpify(msg)
+    left_stream = cv2.resize(left_stream, (640,350))/255.0
+    for i in range(0,350):
+        for j in range(0,640):
+            left_img.append(left_stream[i,j,0])
+            left_img.append(left_stream[i,j,1])
+            left_img.append(left_stream[i,j,2])
+            left_img.append(1)
+
+    dpg.set_value("camera_left_stream", left_img)
+
+def get_right_stream(msg):
+    right_img = []
+    right_stream = ros_numpy.numpify(msg)
+    right_stream = cv2.resize(right_stream, (640,350))/255.0
+    for i in range(0,350):
+        for j in range(0,640):
+            right_img.append(right_stream[i,j,0])
+            right_img.append(right_stream[i,j,1])
+            right_img.append(right_stream[i,j,2])
+            right_img.append(1)
+
+    dpg.set_value("camera_right_stream", right_img)
+
 
 
 rospy.init_node("Dearpy_Node")
 pub_simple = rospy.Publisher(PUB_SIMPLE, String, queue_size=2)
 pub_cmd    = rospy.Publisher(PUB_CMD, Twist, queue_size=2)
+
 rospy.Subscriber(SUB_COUNTER, Int16,  get_counter)
 rospy.Subscriber(SUB_ODOM, Odometry,  get_odom)
+rospy.Subscriber(SUB_LEFT_RAW, Image,  get_left_stream)
+rospy.Subscriber(SUB_RIGHT_RAW, Image,  get_right_stream)
 
 
 #  INTERFACE
@@ -276,7 +315,7 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
 
 
 
-    with dpg.window(label="Plots", width=1200, height=500, pos=(600,400)):
+    with dpg.window(label="Plots", width=1300, height=500, pos=(600,400)):
         # create a theme for the plot
         with dpg.theme(tag="plot_theme_blue"):
             with dpg.theme_component(dpg.mvStemSeries):
@@ -330,43 +369,30 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
 
 
     # STREAM
-
     texture_data = []
-    for i in range(0, 1200 * 400):
-        texture_data.append(255 / 255)
+    for i in range(0, 640 * 350):
+        texture_data.append(0 / 255)
         texture_data.append(0)
         texture_data.append(255 / 255)
         texture_data.append(255 / 255)
 
     with dpg.texture_registry(show=True):
-        dpg.add_dynamic_texture(width=1200, height=400, default_value=texture_data, tag="camera_stream")
+        dpg.add_dynamic_texture(width=640, height=350, default_value=texture_data, tag="camera_left_stream")
+        dpg.add_dynamic_texture(width=640, height=350, default_value=texture_data, tag="camera_right_stream")
+        # dpg.add_raw_texture(width=1280, height=400, default_value=texture_data, format=dpg.mvFormat_Float_rgb, tag="camera_stream")
 
 
-    def _update_dynamic_textures(sender, app_data, user_data):
-        new_color = dpg.get_value(sender)
-        new_color[0] = new_color[0] / 255
-        new_color[1] = new_color[1] / 255
-        new_color[2] = new_color[2] / 255
-        new_color[3] = new_color[3] / 255
 
-        new_texture_data = []
-        for i in range(0, 400 * 1200):
-            new_texture_data.append(new_color[0])
-            new_texture_data.append(new_color[1])
-            new_texture_data.append(new_color[2])
-            new_texture_data.append(new_color[3])
+    with dpg.window(label="Left Camera", pos=(600,0), height=400,no_scrollbar=True):
+        dpg.add_image("camera_left_stream")
 
-        dpg.set_value("camera_stream", new_texture_data)
+    with dpg.window(label="Right Camera", pos=(1240,0), height=400,no_scrollbar=True):
+        dpg.add_image("camera_right_stream")
 
 
-    with dpg.window(label="Stream", pos=(600,0), height=400):
-        dpg.add_image("camera_stream")
-        # dpg.add_color_picker((255, 0, 255, 255), label="Texture",
-        #                     no_side_preview=True, alpha_bar=True, width=150,height=150,
-        #                     callback=_update_dynamic_textures)
 
 
-dpg.create_viewport(title='ROS App', width=1800, height=1400, small_icon=r'dearpy-ros/Assets/icons/robot.png', large_icon=r'dearpy-ros/Assets/icons/robot.ico')
+dpg.create_viewport(title='ROS App', width=1900, height=1400, small_icon=r'dearpy-ros/Assets/icons/robot.png', large_icon=r'dearpy-ros/Assets/icons/robot.ico')
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()

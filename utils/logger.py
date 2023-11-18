@@ -2,7 +2,7 @@ import dearpygui.dearpygui as dpg
 
 class mvLogger:
 
-    def __init__(self, title="Logger", parent=None, pos=(0,0), width=1800, height=500):
+    def __init__(self, title="Logger", parent=None, pos=(0,0), width=1900, height=500):
         
         self.log_level = 0
         self._auto_scroll = True
