@@ -1,9 +1,10 @@
 import rospy
 from std_msgs.msg import String
 from std_msgs.msg import Int16
-
 import  math
 import dearpygui.dearpygui as dpg
+from utils.logger import mvLogger 
+
 
 dpg.create_context()
 
@@ -17,6 +18,11 @@ in_y = [0]
 PUB_SIMPLE = "dearpy_simple_pub"
 
 SUB_COUNTER = "dearpy_counter"
+
+
+# LAYOUT
+CONTORL_PANEL_POS = (0,0)
+LOGGER_POS = (0,900)
 
 #  ROS
 def get_counter(msg):
@@ -35,26 +41,38 @@ rospy.Subscriber(SUB_COUNTER, Int16,  get_counter)
 
 
 #  INTERFACE
+logger = mvLogger(pos=LOGGER_POS)
 
 def button_callback(sender, app_data):
     msg = dpg.get_value(item="publisher_text")
     pub_simple.publish(data=msg)
-    print(f"You publisher at (/dearpy_simple_pub): {msg}")
+    logger.log_info(message=f"Publisher Simple {msg}")
 
 def manual_control(sender, app_data, user_data):
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
     speed = dpg.get_value(item='Manual_Speed')
     if user_data=='UP':
         pub_simple.publish(f"UP Speed {speed}")
+        logger.log_info(message=f"Published {speed} UP")
+
 
     elif user_data=='DOWN':
         pub_simple.publish(f"DOWN Speed {speed}")
+        logger.log_info(message=f"Published {speed} DOWN")
+
     
     elif user_data=='LEFT':
         pub_simple.publish(f"LEFT Speed {speed}")
+        logger.log_info(message=f"Published {speed} LEFT")
+
 
     elif user_data=='RIGHT':
         pub_simple.publish(f"RIGHT Speed {speed}")
+        logger.log_info(message=f"Published {speed} RIGHT")
+
+    if speed > 100:
+        logger.log_warning(f"Speed is {speed}")
+
 
 
 def update_series():
@@ -77,7 +95,7 @@ with dpg.font_registry():
     default_font = dpg.add_font("dearpy-ros/Assets/Fonts/Retron2000.ttf", 30)
 
 
-with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_close=_on_demo_close):
+with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_POS, on_close=_on_demo_close):
     #set font of specific widget
     dpg.bind_font(default_font)
 
@@ -167,7 +185,7 @@ with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_cl
 
 
 
-    with dpg.window(label="Plots", width=1200, height=600, pos=(600,0)):
+    with dpg.window(label="Plots", width=1200, height=500, pos=(600,400)):
         # create a theme for the plot
         with dpg.theme(tag="plot_theme_blue"):
             with dpg.theme_component(dpg.mvStemSeries):
@@ -220,12 +238,44 @@ with dpg.window(label="Dear_Interface", height=1200, width=600, pos=(0,0), on_cl
 
 
 
+    # STREAM
+
+    texture_data = []
+    for i in range(0, 1200 * 400):
+        texture_data.append(255 / 255)
+        texture_data.append(0)
+        texture_data.append(255 / 255)
+        texture_data.append(255 / 255)
+
+    with dpg.texture_registry(show=True):
+        dpg.add_dynamic_texture(width=1200, height=400, default_value=texture_data, tag="camera_stream")
 
 
+    def _update_dynamic_textures(sender, app_data, user_data):
+        new_color = dpg.get_value(sender)
+        new_color[0] = new_color[0] / 255
+        new_color[1] = new_color[1] / 255
+        new_color[2] = new_color[2] / 255
+        new_color[3] = new_color[3] / 255
+
+        new_texture_data = []
+        for i in range(0, 400 * 1200):
+            new_texture_data.append(new_color[0])
+            new_texture_data.append(new_color[1])
+            new_texture_data.append(new_color[2])
+            new_texture_data.append(new_color[3])
+
+        dpg.set_value("camera_stream", new_texture_data)
 
 
+    with dpg.window(label="Stream", pos=(600,0), height=400):
+        dpg.add_image("camera_stream")
+        # dpg.add_color_picker((255, 0, 255, 255), label="Texture",
+        #                     no_side_preview=True, alpha_bar=True, width=150,height=150,
+        #                     callback=_update_dynamic_textures)
 
-dpg.create_viewport(title='ROS App', width=1800, height=1600, small_icon=r'dearpy-ros/Assets/icons/robot.png', large_icon=r'dearpy-ros/Assets/icons/robot.ico')
+
+dpg.create_viewport(title='ROS App', width=1800, height=1400, small_icon=r'dearpy-ros/Assets/icons/robot.png', large_icon=r'dearpy-ros/Assets/icons/robot.ico')
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
