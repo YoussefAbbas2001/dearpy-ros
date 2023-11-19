@@ -191,7 +191,7 @@ def _on_demo_close(sender, app_data, user_data):
 # add a font registry
 with dpg.font_registry():
     # first argument ids the path to the .ttf or .otf file
-    default_font = dpg.add_font("dearpy-ros/Assets/Fonts/Retron2000.ttf", 30)
+    default_font = dpg.add_font("dearpy-ros/assets/Fonts/Retron2000.ttf", 30)
 
 with dpg.theme(tag="button_theme"):
     with dpg.theme_component(dpg.mvButton):
@@ -403,7 +403,7 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
 
 
 
-dpg.create_viewport(title='ROS App', width=1900, height=1400, small_icon=r'dearpy-ros/Assets/icons/robot.png', large_icon=r'dearpy-ros/Assets/icons/robot.ico')
+dpg.create_viewport(title='ROS App', width=1900, height=1400, small_icon=r'dearpy-ros/assets/icons/robot.png', large_icon=r'dearpy-ros/assets/icons/robot.ico')
 dpg.setup_dearpygui()
 dpg.show_viewport()
 dpg.start_dearpygui()
