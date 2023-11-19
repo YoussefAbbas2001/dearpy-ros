@@ -8,6 +8,7 @@ import ros_numpy
 
 
 import cv2
+import time
 import  math
 import ros_numpy
 import numpy as np
@@ -59,30 +60,40 @@ def np_to_list(img):
     pass
 
 def get_left_stream(msg):
-    left_img = []
-    left_stream = ros_numpy.numpify(msg)
-    left_stream = cv2.resize(left_stream, (640,350))/255.0
-    for i in range(0,350):
-        for j in range(0,640):
-            left_img.append(left_stream[i,j,0])
-            left_img.append(left_stream[i,j,1])
-            left_img.append(left_stream[i,j,2])
-            left_img.append(1)
+    start = time.time()
 
-    dpg.set_value("camera_left_stream", left_img)
+    # left_img = []
+    left_stream = ros_numpy.numpify(msg)
+    rgba = cv2.cvtColor(left_stream, cv2.COLOR_RGB2RGBA)
+    rgba[:,:,3] = 255 
+    left_stream = cv2.resize(rgba, (640,350))/255.0
+    left_stream = list(left_stream.reshape(-1))
+
+    # for i in range(0,350):
+    #     for j in range(0,640):
+    #         left_img.append(left_stream[i,j,0])
+    #         left_img.append(left_stream[i,j,1])
+    #         left_img.append(left_stream[i,j,2])
+    #         left_img.append(1)
+
+    end = time.time()
+
+    dpg.set_value("camera_left_stream", left_stream)
 
 def get_right_stream(msg):
-    right_img = []
-    right_stream = ros_numpy.numpify(msg)
-    right_stream = cv2.resize(right_stream, (640,350))/255.0
-    for i in range(0,350):
-        for j in range(0,640):
-            right_img.append(right_stream[i,j,0])
-            right_img.append(right_stream[i,j,1])
-            right_img.append(right_stream[i,j,2])
-            right_img.append(1)
+    start = time.time()
 
-    dpg.set_value("camera_right_stream", right_img)
+    # right_img = []
+    right_stream = ros_numpy.numpify(msg)
+    rgba = cv2.cvtColor(right_stream, cv2.COLOR_RGB2RGBA)
+    rgba[:,:,3] = 255 
+    right_stream = cv2.resize(rgba, (640,350))/255.0
+    right_stream = list(right_stream.reshape(-1))
+    
+    end = time.time()
+
+    dpg.set_value("camera_right_stream",     right_stream)
+
 
 
 
@@ -92,8 +103,8 @@ pub_cmd    = rospy.Publisher(PUB_CMD, Twist, queue_size=2)
 
 rospy.Subscriber(SUB_COUNTER, Int16,  get_counter)
 rospy.Subscriber(SUB_ODOM, Odometry,  get_odom)
-rospy.Subscriber(SUB_LEFT_RAW, Image,  get_left_stream)
-rospy.Subscriber(SUB_RIGHT_RAW, Image,  get_right_stream)
+rospy.Subscriber(SUB_LEFT_RAW, Image,  get_left_stream, queue_size=1)
+rospy.Subscriber(SUB_RIGHT_RAW, Image,  get_right_stream, queue_size=1)
 
 
 #  INTERFACE
@@ -377,7 +388,7 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
         texture_data.append(255 / 255)
 
     with dpg.texture_registry(show=True):
-        dpg.add_dynamic_texture(width=640, height=350, default_value=texture_data, tag="camera_left_stream")
+        dpg.add_dynamic_texture(width=640, height=350, default_value=texture_data,  tag="camera_left_stream")
         dpg.add_dynamic_texture(width=640, height=350, default_value=texture_data, tag="camera_right_stream")
         # dpg.add_raw_texture(width=1280, height=400, default_value=texture_data, format=dpg.mvFormat_Float_rgb, tag="camera_stream")
 
