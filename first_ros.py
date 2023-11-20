@@ -14,6 +14,10 @@ import ros_numpy
 import numpy as np
 import dearpygui.dearpygui as dpg
 from utils.logger import mvLogger 
+# from utils.keyboard import get_key
+from pynput import keyboard
+
+
 
 
 dpg.create_context()
@@ -115,7 +119,9 @@ def button_callback(sender, app_data):
     pub_simple.publish(data=msg)
     logger.log_info(message=f"Publisher Simple {msg}")
 
-
+def get_key(sender, app_data):
+    if dpg.is_key_down(dpg.mvKey_W):
+        print("Key W is pressed")
 
 def manual_control(sender, app_data, user_data):
     '''
@@ -188,6 +194,10 @@ def _hsv_to_rgb(h, s, v):
 def _on_demo_close(sender, app_data, user_data):
     dpg.delete_item(sender)
 
+def keyboard_handlers(sender, app_data):
+    if dpg.is_key_down(dpg.mvKey_C):
+        dpg.destroy_context()
+
 # add a font registry
 with dpg.font_registry():
     # first argument ids the path to the .ttf or .otf file
@@ -201,11 +211,14 @@ with dpg.theme(tag="button_theme"):
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 7*5)
         dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 7*3, 7*3)
 
-with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_POS, on_close=_on_demo_close):
+with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_POS, on_close=_on_demo_close, tag="control_panel"):
     #set font of specific widget
     dpg.bind_font(default_font)
 
     # Menu bar
+    with dpg.handler_registry():
+        dpg.add_key_press_handler(dpg.mvKey_Control ,callback=keyboard_handlers)
+
     with dpg.menu_bar():
         with dpg.menu(label="Menu"):
 
@@ -324,7 +337,8 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
         dpg.add_slider_float(label="Speed", default_value=0.1, max_value=10, tag='Manual_Speed')
         # dpg.add_slider_float(label="Turn", default_value=0.1, max_value=10, tag='Manual_Speed')
 
-
+        with dpg.handler_registry():
+            dpg.add_key_press_handler( callback=get_key)
 
     with dpg.window(label="Plots", width=1300, height=500, pos=(600,400)):
         # create a theme for the plot
@@ -401,6 +415,8 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
         dpg.add_image("camera_right_stream")
 
 
+    # with keyboard.Listener( on_press=on_press, on_release=on_release) as listener: 
+    #     listener.join()
 
 
 dpg.create_viewport(title='ROS App', width=1900, height=1400, small_icon=r'dearpy-ros/assets/icons/robot.png', large_icon=r'dearpy-ros/assets/icons/robot.ico')
