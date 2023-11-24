@@ -16,6 +16,7 @@ import dearpygui.dearpygui as dpg
 from utils.logger import mvLogger 
 # from utils.keyboard import get_key
 from pynput import keyboard
+from subprocess import Popen
 
 
 
@@ -28,6 +29,9 @@ out_y = [0]
 in_x = [0]
 in_y = [0]
 
+# DIR
+BAGS = "dearpy-ros/bags"
+
 # TOPICS
 PUB_SIMPLE = "dearpy_simple_pub"
 PUB_CMD    = "cmd_vel"
@@ -39,8 +43,14 @@ SUB_RIGHT_RAW = "/tortabot/camera/right/image_raw"
 
 
 # LAYOUT
-CONTORL_PANEL_POS = (0,0)
-LOGGER_POS = (0,900)
+CONTORL_PANEL_POS = (0,100)
+LOGGER_POS = (0,1000)
+MENU_BAR_POS = (0,0)
+
+
+# GLOBALS 
+bag_process = ''
+
 
 #  ROS
 def get_counter(msg):
@@ -123,6 +133,15 @@ def get_key(sender, app_data):
     if dpg.is_key_down(dpg.mvKey_W):
         print("Key W is pressed")
 
+def check_keyboard():
+    key_check = dpg.get_value('keyboard_checkbox')
+    print(key_check)
+
+
+def check_joy():
+    print("Here")
+
+
 def manual_control(sender, app_data, user_data):
     '''
     This Function for Take Manual control from GUI
@@ -169,6 +188,30 @@ def manual_control(sender, app_data, user_data):
     pub_cmd.publish(cmd_speeds)
 
 
+def record_bag(sender, app_data, user_data):
+    global bag_process
+    # Unpack the user_data that is currently associated with the button
+    state, enabled_theme, disabled_theme = user_data
+
+
+
+    if   not state:
+        bag_name = dpg.get_value("bag_name")
+        bag_dir  = f"{BAGS}/{bag_name}.bag" 
+        bag_process = Popen(f"rosbag record -a -o {bag_dir}", shell=True)
+        dpg.set_item_label(item='record_bag', label='Stop' )
+    else:
+        bag_process.kill()
+        dpg.set_item_label(item='record_bag', label='Record' )
+
+    # Flip the state
+    state = not state
+    # Apply the appropriate theme
+    dpg.bind_item_theme(sender, enabled_theme if state is False else disabled_theme)
+    # Update the user_data associated with the button
+    dpg.set_item_user_data(sender, (state, enabled_theme, disabled_theme,))
+
+
 def update_series():
     dpg.set_value('series_tag_output', [out_x, out_y])
     dpg.set_item_label('series_tag_output', "Output")
@@ -211,14 +254,27 @@ with dpg.theme(tag="button_theme"):
         dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 7*5)
         dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 7*3, 7*3)
 
-with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_POS, on_close=_on_demo_close, tag="control_panel"):
-    #set font of specific widget
-    dpg.bind_font(default_font)
+with dpg.theme() as enabled_theme:
+    with dpg.theme_component(dpg.mvAll):
+        dpg.add_theme_color(dpg.mvThemeCol_Button, _hsv_to_rgb(7/7.0, 0.6, 0.6))
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _hsv_to_rgb(7/7.0, 0.8, 0.8))
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _hsv_to_rgb(7/7.0, 0.7, 0.7))
+        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 7*5)
+        dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 7*3, 7*3)
+        dpg.add_theme_color(dpg.mvThemeCol_Text, (255, 255, 255), category=dpg.mvThemeCat_Core)
 
-    # Menu bar
-    with dpg.handler_registry():
-        dpg.add_key_press_handler(dpg.mvKey_Control ,callback=keyboard_handlers)
+# - This theme should make the label text on the button red
+with dpg.theme() as disabled_theme:
+    with dpg.theme_component(dpg.mvAll):
+        dpg.add_theme_color(dpg.mvThemeCol_Button, _hsv_to_rgb(7/7.0, 0.6, 0.6))
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, _hsv_to_rgb(7/7.0, 0.8, 0.8))
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, _hsv_to_rgb(7/7.0, 0.7, 0.7))
+        dpg.add_theme_style(dpg.mvStyleVar_FrameRounding, 7*5)
+        dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 7*3, 7*3)
+        dpg.add_theme_color(dpg.mvThemeCol_Text, (0, 0, 0), category=dpg.mvThemeCat_Core)
 
+
+with dpg.window(label="Menu_Bar", height=100, width=1900 ,pos=MENU_BAR_POS, on_close=_on_demo_close, tag="menu_bar",no_close=True, no_collapse=True, no_move=True, no_resize=True):
     with dpg.menu_bar():
         with dpg.menu(label="Menu"):
 
@@ -263,13 +319,21 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
             dpg.add_menu_item(label="Wait For Input", check=True, callback=lambda s, a: dpg.configure_app(wait_for_input=a))
             dpg.add_menu_item(label="Toggle Fullscreen", callback=lambda:dpg.toggle_viewport_fullscreen())
 
+with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_POS, on_close=_on_demo_close, tag="control_panel"):
+    #set font of specific widget
+    dpg.bind_font(default_font)
+
+    # Menu bar
+    with dpg.handler_registry():
+        dpg.add_key_press_handler(dpg.mvKey_Control ,callback=keyboard_handlers)
+
+    
     # with dpg.window(label="Hello Publisher", height=400, width=600, pos=(0,0)):
     #     dpg.add_button(label="Print to Terminal", callback=button_callback)
 
     #     # set font of specific widget
     #     dpg.bind_font(default_font)
 
-    dpg.add_separator()
 
     with dpg.collapsing_header(label="Simple Publisher"):
 
@@ -317,6 +381,11 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
 
 
     with dpg.collapsing_header(label="Manual Control"):
+        with dpg.group(horizontal=True):
+            dpg.add_checkbox(label="Keyboard" ,callback=check_keyboard, tag='keyboard_checkbox')
+            dpg.add_checkbox(label="Joy" , callback=check_joy, tag='joy_checkbox')
+
+
         with dpg.group(horizontal=True, indent=200):
             dpg.add_button(label="UP", callback=manual_control,width=100,indent=20, arrow=True, direction=dpg.mvDir_Up,user_data='UP',tag='up_button') # default direction is mvDir_Up
 
@@ -340,7 +409,19 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
         with dpg.handler_registry():
             dpg.add_key_press_handler( callback=get_key)
 
-    with dpg.window(label="Plots", width=1300, height=500, pos=(600,400)):
+
+    ## ROSBAG
+    with dpg.collapsing_header(label="Rosbag"):
+        dpg.add_button(label="Record", callback=record_bag, indent=200 ,user_data=(False, enabled_theme, disabled_theme,), tag='record_bag')
+        dpg.add_input_text(label="bag_name", default_value="", tag='bag_name')
+
+        dpg.bind_item_theme(item='record_bag', theme=enabled_theme)
+
+
+
+
+
+    with dpg.window(label="Plots", width=1300, height=500, pos=(600,500)):
         # create a theme for the plot
         with dpg.theme(tag="plot_theme_blue"):
             with dpg.theme_component(dpg.mvStemSeries):
@@ -408,10 +489,10 @@ with dpg.window(label="Control_Panel", height=900, width=600, pos=CONTORL_PANEL_
 
 
 
-    with dpg.window(label="Left Camera", pos=(600,0), height=400,no_scrollbar=True):
+    with dpg.window(label="Left Camera", pos=(600,100), height=400,no_scrollbar=True):
         dpg.add_image("camera_left_stream")
 
-    with dpg.window(label="Right Camera", pos=(1240,0), height=400,no_scrollbar=True):
+    with dpg.window(label="Right Camera", pos=(1240,100), height=400,no_scrollbar=True):
         dpg.add_image("camera_right_stream")
 
 
